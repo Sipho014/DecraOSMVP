@@ -7,4 +7,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// MVP: schema will be added once DB is chosen. Keeping this file so Prisma is configured.
+enum IntegrationProvider {
+  SHOPIFY
+  META
+}
+
+model Shop {
+  id         String   @id @default(cuid())
+  shopDomain String   @unique
+
+  installedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tokens IntegrationToken[]
+}
+
+model IntegrationToken {
+  id         String              @id @default(cuid())
+  provider   IntegrationProvider
+  shopId     String
+  shop       Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  scopes     String
+  // Encrypted token at rest (AES-256-GCM, see src/lib/crypto.ts)
+  tokenEnc   String
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([provider, shopId])
+}

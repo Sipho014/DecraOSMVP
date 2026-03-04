@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { exchangeCodeForAccessToken, getShopCookieName, getStateCookieName } from '@/integrations/shopify/auth';
+import { upsertShopifyConnection } from '@/lib/integrations';
 
 function safeEqual(a: string, b: string) {
   const aa = Buffer.from(a);
@@ -58,8 +59,15 @@ export async function GET(req: Request) {
 
   const accessToken = await exchangeCodeForAccessToken({ shop, code });
 
-  // MVP secure storage: cookie (httpOnly). Replace with DB (Prisma) ASAP.
-  jar.set(`shopify_token_${shop}`, accessToken, {
+  // DB is now source of truth.
+  await upsertShopifyConnection({
+    shopDomain: shop,
+    accessToken,
+    scopes: process.env.SHOPIFY_SCOPES || '',
+  });
+
+  // Optional: keep a simple indicator cookie.
+  jar.set(`shopify_connected_${shop}`, '1', {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',

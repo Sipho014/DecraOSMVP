@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^7.4.2",
+    "@prisma/client": "^5.22.0",
     "@shopify/shopify-api": "^12.3.0",
     "next": "16.1.6",
     "react": "19.2.3",
@@ -26,7 +29,7 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "prisma": "^7.4.2",
+    "prisma": "^5.22.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
