@@ -9,17 +9,23 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ActionType, type MorningBriefing } from '@/lib/contracts/briefing';
+import { ActionType, type ActionItem, type MorningBriefing } from '@/lib/contracts/briefing';
+
+type DebugComputed = {
+  mer?: number | null;
+  cpa?: number | null;
+  roas?: number | null;
+  breakEvenCpa?: number;
+};
 
 type BriefingResponse = MorningBriefing & {
   _debug?: {
-    breakEvenCpa?: number;
-    adsets?: unknown;
+    analyzedAt?: string;
+    computed?: DebugComputed;
   };
 };
 
 async function getBriefing(): Promise<BriefingResponse> {
-  // Local-only fetch for now (MVP). In prod, use relative URL + headers.
   const res = await fetch('http://localhost:3000/api/briefing', { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to load briefing');
   return res.json();
@@ -39,22 +45,35 @@ function badgeVariant(type: ActionType) {
 }
 
 function money(currency: string, n?: number) {
-  if (n === undefined || Number.isNaN(n)) return '—';
+  if (n === undefined || n === null || Number.isNaN(n)) return '—';
   return `${currency} ${n.toFixed(2)}`;
+}
+
+function trendBadge() {
+  // Placeholder (real trend engine later)
+  return <span className="text-xs text-muted-foreground">•</span>;
+}
+
+function confidenceScore(a: ActionItem) {
+  // Simple heuristic based on priority.
+  const base = 0.9 - (a.priority - 1) * 0.12;
+  return Math.max(0.45, Math.min(0.92, base));
 }
 
 export default async function BriefingPage() {
   const briefing = await getBriefing();
-  const beCpa = briefing._debug?.breakEvenCpa ?? 0;
-
-  const mer = briefing.kpis.spend > 0 ? briefing.kpis.revenue / briefing.kpis.spend : undefined;
+  const analyzedAt = briefing._debug?.analyzedAt;
+  const computed = briefing._debug?.computed;
 
   return (
     <main className="mx-auto max-w-5xl p-8">
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Morning Execution Briefing</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{briefing.kpis.date}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {briefing.kpis.date}
+            {analyzedAt ? ` • Last analysis: ${new Date(analyzedAt).toLocaleString()}` : null}
+          </p>
         </div>
       </div>
 
@@ -62,26 +81,36 @@ export default async function BriefingPage() {
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-8">
         <Card className="md:col-span-2">
           <CardHeader className="py-4">
-            <CardDescription>Revenue</CardDescription>
+            <CardDescription className="flex items-center gap-2">
+              Revenue {trendBadge()}
+            </CardDescription>
             <CardTitle>{money(briefing.kpis.currency, briefing.kpis.revenue)}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="md:col-span-2">
           <CardHeader className="py-4">
-            <CardDescription>Spend</CardDescription>
+            <CardDescription className="flex items-center gap-2">
+              Spend {trendBadge()}
+            </CardDescription>
             <CardTitle>{money(briefing.kpis.currency, briefing.kpis.spend)}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="md:col-span-2">
           <CardHeader className="py-4">
-            <CardDescription>MER</CardDescription>
-            <CardTitle>{mer ? mer.toFixed(2) : '—'}</CardTitle>
+            <CardDescription className="flex items-center gap-2">
+              MER {trendBadge()}
+            </CardDescription>
+            <CardTitle>{computed?.mer ? computed.mer.toFixed(2) : '—'}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="md:col-span-2">
           <CardHeader className="py-4">
-            <CardDescription>Break-even CPA</CardDescription>
-            <CardTitle>{beCpa ? money(briefing.kpis.currency, beCpa) : '—'}</CardTitle>
+            <CardDescription className="flex items-center gap-2">
+              Break-even CPA {trendBadge()}
+            </CardDescription>
+            <CardTitle>
+              {computed?.breakEvenCpa ? money(briefing.kpis.currency, computed.breakEvenCpa) : '—'}
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -99,7 +128,12 @@ export default async function BriefingPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between gap-4">
                     <CardTitle className="text-base">{a.title}</CardTitle>
-                    <Badge variant={badgeVariant(a.type)}>{a.type}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={badgeVariant(a.type)}>{a.type}</Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {(confidenceScore(a) * 100).toFixed(0)}% conf
+                      </span>
+                    </div>
                   </div>
                   <CardDescription>
                     Priority {a.priority} • {a.entity.platform} {a.entity.kind}
