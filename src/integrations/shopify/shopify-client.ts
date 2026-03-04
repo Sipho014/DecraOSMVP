@@ -25,7 +25,15 @@ export function getShopifyApp() {
   });
 }
 
-export async function fetchBasicMetrics(opts: { shop: string; accessToken: string }) {
+export type ShopifyOrdersSummary = {
+  since: string;
+  ordersCount: number;
+  revenue: number;
+  aov: number;
+  currency: string | null;
+};
+
+export async function fetchOrdersSummary(opts: { shop: string; accessToken: string }): Promise<ShopifyOrdersSummary> {
   const shopify = getShopifyApp();
   const client = new shopify.clients.Rest({
     session: {
@@ -37,18 +45,7 @@ export async function fetchBasicMetrics(opts: { shop: string; accessToken: strin
     },
   });
 
-  // Minimal: last 30 days orders + gross sales (very rough).
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
-  const ordersResp = await client.get({
-    path: 'orders',
-    query: {
-      status: 'any',
-      created_at_min: since,
-      limit: 50,
-      fields: 'id,total_price,created_at,currency',
-    },
-  });
 
   type ShopifyOrder = {
     id: number;
@@ -57,14 +54,28 @@ export async function fetchBasicMetrics(opts: { shop: string; accessToken: strin
     currency: string;
   };
 
+  // Note: Shopify REST is paginated; MVP uses first 250 orders.
+  const ordersResp = await client.get({
+    path: 'orders',
+    query: {
+      status: 'any',
+      created_at_min: since,
+      limit: 250,
+      fields: 'id,total_price,created_at,currency',
+    },
+  });
+
   const body = ordersResp.body as { orders?: ShopifyOrder[] };
   const orders = body.orders ?? [];
   const revenue = orders.reduce((sum, o) => sum + Number(o.total_price || 0), 0);
+  const ordersCount = orders.length;
+  const aov = ordersCount > 0 ? revenue / ordersCount : 0;
 
   return {
-    ordersCount: orders.length,
-    revenue,
-    currency: orders[0]?.currency ?? null,
     since,
+    ordersCount,
+    revenue: Number(revenue.toFixed(2)),
+    aov: Number(aov.toFixed(2)),
+    currency: orders[0]?.currency ?? null,
   };
 }
