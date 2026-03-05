@@ -5,6 +5,7 @@ import { generateSampleAdSets } from '@/lib/dev/sample-data';
 import { evaluateAdSets } from '@/lib/engine/decision-engine';
 import { computeBriefingKpis } from '@/lib/engine/metrics-engine';
 import { getShopifyAccessToken } from '@/lib/integrations';
+import { persistBriefing } from '@/lib/briefing/store';
 import { fetchOrdersSummary } from '@/integrations/shopify/shopify-client';
 
 export async function GET(req: Request) {
@@ -62,6 +63,17 @@ export async function GET(req: Request) {
     kpis: metrics.kpis,
     actions,
   };
+
+  // Persist (best-effort)
+  try {
+    await persistBriefing({
+      shopDomain: shop ?? undefined,
+      date,
+      briefing,
+    });
+  } catch {
+    // ignore; MVP should still render
+  }
 
   return NextResponse.json({
     ...briefing,
