@@ -4,11 +4,22 @@ import { type DecisionPolicy } from '@/lib/engine/decision-policy';
 export type AdSetMetrics = {
   id: string;
   name: string;
-  spend: number;
-  purchases: number;
-  revenue: number;
-  cpa: number | null; // spend / purchases
-  roas: number; // revenue / spend
+  
+  // “3-day” window (momentum)
+  spend3d: number;
+  purchases3d: number;
+  revenue3d: number;
+
+  // “7-day” window (stability)
+  spend7d: number;
+  purchases7d: number;
+  revenue7d: number;
+
+  // convenience (derived; optional so the caller can omit)
+  cpa3d?: number | null; // spend3d / purchases3d
+  roas3d?: number | null; // revenue3d / spend3d
+  cpa7d?: number | null; // spend7d / purchases7d
+  roas7d?: number | null; // revenue7d / spend7d
   ctr: number; // 0-1
   frequency: number;
   ctrTrend7d?: 'up' | 'down' | 'flat';
@@ -34,13 +45,16 @@ export function evaluateAdSets(input: {
   const actions: ActionItem[] = [];
 
   for (const a of adsets) {
-    // KILL
-    if (a.spend > policy.spendKillThreshold && a.purchases === 0) {
+    const cpa3d = a.cpa3d ?? (a.purchases3d > 0 ? a.spend3d / a.purchases3d : null);
+    const roas7d = a.roas7d ?? (a.spend7d > 0 ? a.revenue7d / a.spend7d : null);
+
+    // KILL (3D momentum)
+    if (a.spend3d > policy.spendKillThreshold && a.purchases3d === 0) {
       actions.push(
         action({
           type: ActionType.KILL,
           title: `Kill Ad Set: ${a.name}`,
-          rationale: `Spent ${policy.currency} ${a.spend.toFixed(2)} with 0 purchases.`,
+          rationale: `3D: spent ${policy.currency} ${a.spend3d.toFixed(2)} with 0 purchases.`,
           priority: 1,
           entity: { platform: 'meta', kind: 'adset', id: a.id, name: a.name },
         }),
@@ -48,20 +62,42 @@ export function evaluateAdSets(input: {
       continue;
     }
 
-    // SCALE
+    // SCALE (3D momentum)
     if (
-      a.purchases >= policy.minConversionsToScale &&
-      a.cpa !== null &&
-      a.cpa < policy.breakEvenCpa
+      a.purchases3d >= policy.minConversionsToScale &&
+      cpa3d !== null &&
+      cpa3d < policy.breakEvenCpa
     ) {
       actions.push(
         action({
           type: ActionType.SCALE,
           title: `Scale Ad Set: ${a.name}`,
-          rationale: `CPA ${policy.currency} ${a.cpa.toFixed(2)} is below break-even (${policy.currency} ${policy.breakEvenCpa.toFixed(2)}), with ${a.purchases} purchases.`,
+          rationale: `3D: CPA ${policy.currency} ${cpa3d.toFixed(2)} is below break-even (${policy.currency} ${policy.breakEvenCpa.toFixed(2)}), with ${a.purchases3d} purchases.`,
           priority: 2,
           entity: { platform: 'meta', kind: 'adset', id: a.id, name: a.name },
           suggestedChange: { metric: 'budget', to: 'Increase budget by 20%' },
+        }),
+      );
+      continue;
+    }
+
+    // TEST (7D stability underperformance proxy)
+    const hasVolume7d = a.purchases7d >= Math.max(2, Math.floor(policy.minConversionsToScale / 2));
+    const aov7d = a.purchases7d > 0 ? a.revenue7d / a.purchases7d : null;
+    const targetRoasProxy = aov7d !== null && policy.breakEvenCpa > 0 ? aov7d / policy.breakEvenCpa : null;
+
+    if (hasVolume7d && roas7d !== null && targetRoasProxy !== null && roas7d < targetRoasProxy) {
+      actions.push(
+        action({
+          type: ActionType.TEST,
+          title: `Fix performance: ${a.name}`,
+          rationale: `7D: ROAS ${roas7d.toFixed(2)} is below target proxy (${targetRoasProxy.toFixed(2)}).`,
+          priority: 3,
+          entity: { platform: 'meta', kind: 'adset', id: a.id, name: a.name },
+          suggestedChange: {
+            metric: 'creative',
+            to: 'Test new creatives and angles; review offer + landing page match',
+          },
         }),
       );
       continue;

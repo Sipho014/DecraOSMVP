@@ -29,8 +29,9 @@ export async function GET(req: Request) {
 
   // Ads (sample until Meta exists)
   const adsets = generateSampleAdSets(7);
-  const spend = adsets.reduce((s, a) => s + a.spend, 0);
-  const purchases = adsets.reduce((s, a) => s + a.purchases, 0);
+  // Use 7D as the “headline” totals for now.
+  const spend = adsets.reduce((s, a) => s + a.spend7d, 0);
+  const purchases = adsets.reduce((s, a) => s + a.purchases7d, 0);
 
   // Economics inputs (settings override)
   const currency = shopify?.currency ?? 'EUR';

@@ -13,12 +13,21 @@ export function generateSampleAdSets(count = 6): AdSetMetrics[] {
   const products = ['Starter Kit', 'Bundle A', 'Bundle B', 'Hero SKU', 'Subscription'];
 
   return Array.from({ length: count }).map((_, i) => {
-    const spend = Number(rnd(20, 450).toFixed(2));
-    const purchases = Math.random() < 0.25 ? 0 : Math.floor(rnd(1, 18));
-    const aov = rnd(35, 120);
-    const revenue = Number((purchases * aov).toFixed(2));
-    const cpa = purchases > 0 ? Number((spend / purchases).toFixed(2)) : null;
-    const roas = spend > 0 ? Number((revenue / spend).toFixed(2)) : 0;
+    const spend7d = Number(rnd(60, 900).toFixed(2));
+    const purchases7d = Math.random() < 0.2 ? 0 : Math.floor(rnd(2, 30));
+    const aov7d = rnd(35, 120);
+    const revenue7d = Number((purchases7d * aov7d).toFixed(2));
+
+    // 3D is a noisy subset of 7D
+    const spend3d = Number((spend7d * rnd(0.25, 0.6)).toFixed(2));
+    const purchases3d = purchases7d === 0 ? 0 : (Math.random() < 0.25 ? 0 : Math.floor(purchases7d * rnd(0.2, 0.6)));
+    const aov3d = aov7d * rnd(0.9, 1.1);
+    const revenue3d = Number((purchases3d * aov3d).toFixed(2));
+
+    const cpa3d = purchases3d > 0 ? Number((spend3d / purchases3d).toFixed(2)) : null;
+    const roas3d = spend3d > 0 ? Number((revenue3d / spend3d).toFixed(2)) : 0;
+    const cpa7d = purchases7d > 0 ? Number((spend7d / purchases7d).toFixed(2)) : null;
+    const roas7d = spend7d > 0 ? Number((revenue7d / spend7d).toFixed(2)) : 0;
     const ctr = Number(rnd(0.004, 0.03).toFixed(4));
     const frequency = Number(rnd(1.0, 4.2).toFixed(1));
 
@@ -28,11 +37,16 @@ export function generateSampleAdSets(count = 6): AdSetMetrics[] {
     return {
       id: `adset_${i + 1}`,
       name: `${pick(angles)} • ${pick(products)}`,
-      spend,
-      purchases,
-      revenue,
-      cpa,
-      roas,
+      spend3d,
+      purchases3d,
+      revenue3d,
+      spend7d,
+      purchases7d,
+      revenue7d,
+      cpa3d,
+      roas3d,
+      cpa7d,
+      roas7d,
       ctr,
       frequency,
       ctrTrend7d,
