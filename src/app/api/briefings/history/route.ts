@@ -12,9 +12,7 @@ export async function GET(req: Request) {
     : null;
 
   const rows = await prisma.briefing.findMany({
-    where: {
-      shopId: shopRow?.id ?? null,
-    },
+    where: shopRow?.id ? { shopId: shopRow.id } : undefined,
     orderBy: [{ date: 'desc' }],
     take: limit,
   });

@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ActionType, type ActionItem, type MorningBriefing } from '@/lib/contracts/briefing';
+import { ActionType, type ActionItem, type BriefingKpis, type MorningBriefing } from '@/lib/contracts/briefing';
 
 type DebugComputed = {
   mer?: number | null;
@@ -31,6 +31,31 @@ async function getBriefing(): Promise<BriefingResponse> {
   return res.json();
 }
 
+type BriefingsHistoryItem = {
+  id: string;
+  date: string;
+  generatedAt: string;
+  briefing: MorningBriefing;
+};
+
+type BriefingsHistoryResponse = {
+  shop: string | null;
+  items: BriefingsHistoryItem[];
+};
+
+async function getBriefingsHistory(opts: {
+  shop?: string;
+  limit?: number;
+}): Promise<BriefingsHistoryResponse> {
+  const url = new URL('http://localhost:3000/api/briefings/history');
+  if (opts.shop) url.searchParams.set('shop', opts.shop);
+  if (opts.limit) url.searchParams.set('limit', String(opts.limit));
+
+  const res = await fetch(url.toString(), { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to load briefing history');
+  return res.json();
+}
+
 function badgeVariant(type: ActionType) {
   switch (type) {
     case ActionType.SCALE:
@@ -49,6 +74,12 @@ function money(currency: string, n?: number) {
   return `${currency} ${n.toFixed(2)}`;
 }
 
+function kpiSummary(kpis: BriefingKpis) {
+  const roas = kpis.roas ? kpis.roas.toFixed(2) : '—';
+  const orders = kpis.orders ?? '—';
+  return `Rev ${money(kpis.currency, kpis.revenue)} • Spend ${money(kpis.currency, kpis.spend)} • ROAS ${roas} • Orders ${orders}`;
+}
+
 function trendBadge() {
   // Placeholder (real trend engine later)
   return <span className="text-xs text-muted-foreground">•</span>;
@@ -60,8 +91,13 @@ function confidenceScore(a: ActionItem) {
   return Math.max(0.45, Math.min(0.92, base));
 }
 
-export default async function BriefingPage() {
+export default async function BriefingPage({
+  searchParams,
+}: {
+  searchParams?: { shop?: string };
+}) {
   const briefing = await getBriefing();
+  const history = await getBriefingsHistory({ shop: searchParams?.shop, limit: 14 });
   const analyzedAt = briefing._debug?.analyzedAt;
   const computed = briefing._debug?.computed;
 
@@ -113,6 +149,45 @@ export default async function BriefingPage() {
             </CardTitle>
           </CardHeader>
         </Card>
+      </div>
+
+      <Separator className="my-8" />
+
+      <div>
+        <h2 className="text-lg font-semibold">Briefing History</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Previous runs stored in the database.
+        </p>
+
+        <div className="mt-4 grid gap-3">
+          {history.items.length === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">No history yet</CardTitle>
+                <CardDescription>
+                  Once you generate a few briefings, they’ll show up here.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : (
+            history.items.map((h) => (
+              <Card key={h.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-4">
+                    <CardTitle className="text-base">{h.date}</CardTitle>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(h.generatedAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <CardDescription>{kpiSummary(h.briefing.kpis)}</CardDescription>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  Actions: {h.briefing.actions.length}
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
       </div>
 
       <Separator className="my-8" />
