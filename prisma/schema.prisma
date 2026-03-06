@@ -20,6 +20,9 @@ model Shop {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Per-shop settings (MVP). Shape enforced in src/lib/settings.ts
+  settings Json?
+
   tokens   IntegrationToken[]
   Briefing Briefing[]
 }

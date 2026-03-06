@@ -5,7 +5,9 @@ import { generateSampleAdSets } from '@/lib/dev/sample-data';
 import { evaluateAdSets } from '@/lib/engine/decision-engine';
 import { computeBriefingKpis } from '@/lib/engine/metrics-engine';
 import { getShopifyAccessToken } from '@/lib/integrations';
+import { prisma } from '@/lib/prisma';
 import { persistBriefing } from '@/lib/briefing/store';
+import { DEFAULT_SETTINGS, parseShopSettings } from '@/lib/settings';
 import { fetchOrdersSummary } from '@/integrations/shopify/shopify-client';
 
 export async function GET(req: Request) {
@@ -29,9 +31,11 @@ export async function GET(req: Request) {
   const spend = adsets.reduce((s, a) => s + a.spend, 0);
   const purchases = adsets.reduce((s, a) => s + a.purchases, 0);
 
-  // Temporary economics inputs
+  // Economics inputs (settings override)
   const currency = shopify?.currency ?? 'EUR';
-  const breakEvenCpa = 28;
+  const shopRow = shop ? await prisma.shop.findUnique({ where: { shopDomain: shop } }) : null;
+  const settings = shopRow ? parseShopSettings(shopRow.settings) : DEFAULT_SETTINGS;
+  const breakEvenCpa = settings.breakEvenCpa;
 
   const metrics = computeBriefingKpis({
     date,
@@ -49,11 +53,11 @@ export async function GET(req: Request) {
     adsets,
     config: {
       currency,
-      spendKillThreshold: 120,
+      spendKillThreshold: settings.thresholds.spendKillThreshold,
       breakEvenCpa,
-      minConversionsToScale: 4,
-      ctrDeclineTriggersTestBelow: 0.012,
-      frequencyFatigueThreshold: 2.6,
+      minConversionsToScale: settings.thresholds.minConversionsToScale,
+      ctrDeclineTriggersTestBelow: settings.thresholds.ctrDeclineTriggersTestBelow,
+      frequencyFatigueThreshold: settings.thresholds.frequencyFatigueThreshold,
     },
   });
 
