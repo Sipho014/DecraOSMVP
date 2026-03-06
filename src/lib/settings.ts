@@ -6,11 +6,15 @@ export type DecisionThresholds = {
 };
 
 export type ShopSettings = {
+  // Versioned so we can migrate settings shapes later.
+  version: 1;
+
   breakEvenCpa: number;
   thresholds: DecisionThresholds;
 };
 
 export const DEFAULT_SETTINGS: ShopSettings = {
+  version: 1,
   breakEvenCpa: 28,
   thresholds: {
     spendKillThreshold: 120,
@@ -28,6 +32,7 @@ export function parseShopSettings(input: unknown): ShopSettings {
     typeof v === 'number' && Number.isFinite(v) ? v : fallback;
 
   return {
+    version: 1,
     breakEvenCpa: num(obj.breakEvenCpa, DEFAULT_SETTINGS.breakEvenCpa),
     thresholds: {
       spendKillThreshold: num(th.spendKillThreshold, DEFAULT_SETTINGS.thresholds.spendKillThreshold),
@@ -52,6 +57,7 @@ export function parseShopSettingsFromForm(form: FormData): ShopSettings {
   };
 
   return {
+    version: 1,
     breakEvenCpa: getNum('breakEvenCpa', DEFAULT_SETTINGS.breakEvenCpa),
     thresholds: {
       spendKillThreshold: getNum(

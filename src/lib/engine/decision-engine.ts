@@ -1,4 +1,5 @@
 import { ActionType, type ActionItem } from '@/lib/contracts/briefing';
+import { type DecisionPolicy } from '@/lib/engine/decision-policy';
 
 export type AdSetMetrics = {
   id: string;
@@ -15,16 +16,6 @@ export type AdSetMetrics = {
   learning?: boolean;
 };
 
-export type DecisionEngineConfig = {
-  currency: string;
-  spendKillThreshold: number;
-  breakEvenCpa: number;
-  minConversionsToScale: number;
-
-  ctrDeclineTriggersTestBelow: number; // e.g. 0.012 (1.2%)
-  frequencyFatigueThreshold: number; // e.g. 2.5
-};
-
 function action(
   partial: Omit<ActionItem, 'id'> & { id?: string },
 ): ActionItem {
@@ -36,20 +27,20 @@ function action(
 
 export function evaluateAdSets(input: {
   adsets: AdSetMetrics[];
-  config: DecisionEngineConfig;
+  policy: DecisionPolicy;
 }): ActionItem[] {
-  const { adsets, config } = input;
+  const { adsets, policy } = input;
 
   const actions: ActionItem[] = [];
 
   for (const a of adsets) {
     // KILL
-    if (a.spend > config.spendKillThreshold && a.purchases === 0) {
+    if (a.spend > policy.spendKillThreshold && a.purchases === 0) {
       actions.push(
         action({
           type: ActionType.KILL,
           title: `Kill Ad Set: ${a.name}`,
-          rationale: `Spent ${config.currency} ${a.spend.toFixed(2)} with 0 purchases.`,
+          rationale: `Spent ${policy.currency} ${a.spend.toFixed(2)} with 0 purchases.`,
           priority: 1,
           entity: { platform: 'meta', kind: 'adset', id: a.id, name: a.name },
         }),
@@ -59,15 +50,15 @@ export function evaluateAdSets(input: {
 
     // SCALE
     if (
-      a.purchases >= config.minConversionsToScale &&
+      a.purchases >= policy.minConversionsToScale &&
       a.cpa !== null &&
-      a.cpa < config.breakEvenCpa
+      a.cpa < policy.breakEvenCpa
     ) {
       actions.push(
         action({
           type: ActionType.SCALE,
           title: `Scale Ad Set: ${a.name}`,
-          rationale: `CPA ${config.currency} ${a.cpa.toFixed(2)} is below break-even (${config.currency} ${config.breakEvenCpa.toFixed(2)}), with ${a.purchases} purchases.`,
+          rationale: `CPA ${policy.currency} ${a.cpa.toFixed(2)} is below break-even (${policy.currency} ${policy.breakEvenCpa.toFixed(2)}), with ${a.purchases} purchases.`,
           priority: 2,
           entity: { platform: 'meta', kind: 'adset', id: a.id, name: a.name },
           suggestedChange: { metric: 'budget', to: 'Increase budget by 20%' },
@@ -77,9 +68,9 @@ export function evaluateAdSets(input: {
     }
 
     // TEST (creative fatigue / declining CTR / rising CPA)
-    const ctrBad = a.ctr < config.ctrDeclineTriggersTestBelow || a.ctrTrend7d === 'down';
+    const ctrBad = a.ctr < policy.ctrDeclineTriggersTestBelow || a.ctrTrend7d === 'down';
     const cpaBad = a.cpaTrend7d === 'up';
-    const fatigue = a.frequency >= config.frequencyFatigueThreshold;
+    const fatigue = a.frequency >= policy.frequencyFatigueThreshold;
 
     if (ctrBad || cpaBad || fatigue) {
       actions.push(

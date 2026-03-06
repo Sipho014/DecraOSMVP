@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { type MorningBriefing } from '@/lib/contracts/briefing';
 import { generateSampleAdSets } from '@/lib/dev/sample-data';
 import { evaluateAdSets } from '@/lib/engine/decision-engine';
+import { policyFromSettings } from '@/lib/engine/decision-policy';
 import { computeBriefingKpis } from '@/lib/engine/metrics-engine';
 import { getShopifyAccessToken } from '@/lib/integrations';
 import { prisma } from '@/lib/prisma';
@@ -51,14 +52,7 @@ export async function GET(req: Request) {
 
   const actions = evaluateAdSets({
     adsets,
-    config: {
-      currency,
-      spendKillThreshold: settings.thresholds.spendKillThreshold,
-      breakEvenCpa,
-      minConversionsToScale: settings.thresholds.minConversionsToScale,
-      ctrDeclineTriggersTestBelow: settings.thresholds.ctrDeclineTriggersTestBelow,
-      frequencyFatigueThreshold: settings.thresholds.frequencyFatigueThreshold,
-    },
+    policy: policyFromSettings({ currency, settings }),
   });
 
   const briefing: MorningBriefing = {
