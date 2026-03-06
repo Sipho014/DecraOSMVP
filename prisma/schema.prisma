@@ -54,6 +54,6 @@ model Briefing {
 
   createdAt DateTime @default(now())
 
-  @@unique([shopId, date])
+  @@unique([shopId, date], name: "shopId_date")
   @@index([shopId, date])
 }

@@ -11,20 +11,29 @@ export async function persistBriefing(opts: {
     ? await prisma.shop.findUnique({ where: { shopDomain: opts.shopDomain } })
     : null;
 
-  return prisma.briefing.upsert({
+  // Prisma upsert requires a unique selector; composite uniques don’t accept null cleanly.
+  // MVP approach: update existing if present, otherwise create.
+  const existing = await prisma.briefing.findFirst({
     where: {
-      shopId_date: {
-        shopId: shop?.id ?? null,
-        date: opts.date,
-      },
-    },
-    create: {
-      shopId: shop?.id ?? null,
+      shopId: shop?.id,
       date: opts.date,
-      generatedAt: new Date(opts.briefing.generatedAt),
-      payload: opts.briefing,
     },
-    update: {
+  });
+
+  if (existing) {
+    return prisma.briefing.update({
+      where: { id: existing.id },
+      data: {
+        generatedAt: new Date(opts.briefing.generatedAt),
+        payload: opts.briefing,
+      },
+    });
+  }
+
+  return prisma.briefing.create({
+    data: {
+      shopId: shop?.id,
+      date: opts.date,
       generatedAt: new Date(opts.briefing.generatedAt),
       payload: opts.briefing,
     },

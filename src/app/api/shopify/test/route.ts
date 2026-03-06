@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { fetchBasicMetrics } from '@/integrations/shopify/shopify-client';
+import { fetchOrdersSummary } from '@/integrations/shopify/shopify-client';
 import { getShopifyAccessToken } from '@/lib/integrations';
 
 export async function GET(req: Request) {
@@ -15,6 +15,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Not connected. Run /api/shopify/connect?shop=...' }, { status: 401 });
   }
 
-  const metrics = await fetchBasicMetrics({ shop, accessToken: conn.accessToken });
+  const metrics = await fetchOrdersSummary({ shop, accessToken: conn.accessToken });
   return NextResponse.json({ ok: true, shop, metrics });
 }

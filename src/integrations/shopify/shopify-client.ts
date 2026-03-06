@@ -1,4 +1,4 @@
-import { shopifyApi, LATEST_API_VERSION } from '@shopify/shopify-api';
+import { ApiVersion, Session, shopifyApi } from '@shopify/shopify-api';
 
 export function getShopifyApp() {
   const apiKey = process.env.SHOPIFY_API_KEY;
@@ -20,7 +20,7 @@ export function getShopifyApp() {
     apiSecretKey,
     scopes,
     hostName: new URL(appUrl).host,
-    apiVersion: LATEST_API_VERSION,
+    apiVersion: ApiVersion.January26,
     isEmbeddedApp: false,
   });
 }
@@ -35,15 +35,15 @@ export type ShopifyOrdersSummary = {
 
 export async function fetchOrdersSummary(opts: { shop: string; accessToken: string }): Promise<ShopifyOrdersSummary> {
   const shopify = getShopifyApp();
-  const client = new shopify.clients.Rest({
-    session: {
-      id: `offline_${opts.shop}`,
-      shop: opts.shop,
-      isOnline: false,
-      state: '',
-      accessToken: opts.accessToken,
-    },
+  const session = new Session({
+    id: `offline_${opts.shop}`,
+    shop: opts.shop,
+    state: '',
+    isOnline: false,
   });
+  session.accessToken = opts.accessToken;
+
+  const client = new shopify.clients.Rest({ session });
 
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
