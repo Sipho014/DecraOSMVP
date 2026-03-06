@@ -26,7 +26,7 @@ type BriefingResponse = MorningBriefing & {
 };
 
 async function getBriefing(): Promise<BriefingResponse> {
-  const res = await fetch('http://localhost:3000/api/briefing', { cache: 'no-store' });
+  const res = await fetch('/api/briefing', { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to load briefing');
   return res.json();
 }
@@ -47,11 +47,11 @@ async function getBriefingsHistory(opts: {
   shop?: string;
   limit?: number;
 }): Promise<BriefingsHistoryResponse> {
-  const url = new URL('http://localhost:3000/api/briefings/history');
+  const url = new URL('/api/briefings/history', 'http://internal');
   if (opts.shop) url.searchParams.set('shop', opts.shop);
   if (opts.limit) url.searchParams.set('limit', String(opts.limit));
 
-  const res = await fetch(url.toString(), { cache: 'no-store' });
+  const res = await fetch(url.pathname + url.search, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to load briefing history');
   return res.json();
 }
